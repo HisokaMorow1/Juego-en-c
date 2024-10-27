@@ -1,0 +1,675 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
+#include <string.h>
+#include <allegro.h>
+#include <stdbool.h> 
+
+#define GRAVITY 1.2       // Gravedad para la caída
+#define JUMP_FORCE 16.0   // Fuerza del salto
+#define MAX_JUMP_HEIGHT 10 // Altura máxima del salto
+#define GROUND_Y 680      // Posición vertical del suelo
+
+#define MAXANCHO 1280
+#define MAXLARGO 720
+#define MAXMANCHO 32
+#define MAXALTO 18
+#define PANCHO 40
+#define PLARGO 40
+#define ANCHOB 40
+#define EANCHO 40
+#define ELARGO 40
+
+struct personaje
+{
+    int pos_x = 40;
+    int pos_y = 620;
+    int direccion = 1;
+    int jugador_herido = 0;
+    int num_vidas = 3;
+    bool invulnerable = false;
+    int invulnerable_timer = 0;
+    double y_velocity;
+    bool is_jumping;
+} p;
+
+struct Enemigo
+{
+    int poss_x, poss_y;
+    int direccion;
+} e1, e2, e3, e4, e5;
+
+struct Bala
+{
+    int x;
+    int y;
+    int x_velocity;
+    bool disparada;
+    int bala_x = -1; 
+    int bala_y = -1;
+} b;
+
+typedef struct 
+{
+    int x;
+    int y;
+    bool recogida;
+} Llave;
+
+BITMAP *fondo;
+BITMAP *bala;
+BITMAP *megacorriendo;
+BITMAP *megacorriendo2;
+BITMAP *bloque;
+BITMAP *vacio;
+BITMAP *enemigo_bitmap;
+BITMAP *vida;
+BITMAP *puerta;
+BITMAP *llave;
+
+void cambiar_nivel(int nuevo_nivel, Enemigo *e1, Enemigo *e2, Enemigo *e3, Enemigo *e4, Enemigo *e5); 
+void dibujo(personaje &p, Enemigo *e1, Enemigo *e2, Enemigo *e3,Enemigo *e4,Enemigo *e5, int bala_x, int bala_y);
+void mapa(int level, Enemigo *e1, Enemigo *e2, Enemigo *e3, Enemigo *e4, Enemigo *e5);
+void dibujar_vidas();
+void mover_personaje(personaje &p, Enemigo *e1, Enemigo *e2, Enemigo *e3,Enemigo *e4,Enemigo *e5, int &bala_x, int &bala_y);
+void disparar_bala(personaje &p);
+void dibujamapa();
+void limpiar();
+void mover_enemigo(Enemigo *e);
+char mapita[MAXANCHO][MAXLARGO];
+
+int main()
+{
+    int bala_x = -1;
+    int bala_y = -1;
+    allegro_init();
+    install_keyboard();
+    install_mouse();
+    set_color_depth(32);
+    set_gfx_mode(GFX_AUTODETECT_WINDOWED, MAXANCHO, MAXLARGO, 0, 0);
+    fondo = create_bitmap(MAXANCHO, MAXLARGO);
+    clear_to_color(fondo, 0xFFFFFF);
+    megacorriendo2 = load_bitmap("megacorriendo2.bmp", NULL);
+    bala = load_bitmap("bala.bmp", NULL);
+    megacorriendo = load_bitmap("megacorriendo.bmp", NULL);
+    fondo = load_bitmap("fondo.bmp", NULL);
+    bloque = load_bitmap("bloque3.bmp", NULL);
+    vacio = load_bitmap("f.bmp", NULL);
+    enemigo_bitmap = load_bitmap("enemigo.bmp", NULL);
+    vida = load_bitmap("vida.bmp", NULL);
+	puerta = load_bitmap("puerta.bmp",NULL);
+	llave = load_bitmap("llave.bmp",NULL);
+
+    // Cargar mapa
+    mapa(1, &e1, &e2, &e3, &e4, &e5);
+    dibujamapa();
+
+    int exit_game = 0;
+    int current_level = 1;
+  	
+	while (!exit_game)
+    {
+        dibujo(p, &e1, &e2, &e3, &e4, &e5, bala_x, bala_y);
+        mover_personaje(p, &e1, &e2, &e3, &e4, &e5, bala_x, bala_y);
+        mover_enemigo(&e1);
+        mover_enemigo(&e2);
+        mover_enemigo(&e3);
+        mover_enemigo(&e4);
+        mover_enemigo(&e5);
+
+        // Actualizar la posición de la bala si está disparada
+        if (b.disparada)
+        {
+            b.x += b.x_velocity;
+
+            // Verificar si la bala salió de la pantalla
+            if (b.x < 0 || b.x > MAXANCHO)
+            {
+                b.disparada = false;
+                b.disparada = false;
+            }
+        }
+		if (current_level == 1 && e1.poss_x == -100 && e2.poss_x == -100 && e3.poss_x == -100 && e4.poss_x == -100 && e5.poss_x == -100)
+		{
+    		cambiar_nivel(2, &e1, &e2, &e3, &e4, &e5);
+    		current_level = 2;
+		}
+		else if (current_level == 2 && e1.poss_x == -100 && e2.poss_x == -100 && e3.poss_x == -100 && e4.poss_x == -100 && e5.poss_x == -100)
+		{
+    		cambiar_nivel(3, &e1, &e2, &e3, &e4, &e5);
+    		current_level = 3;
+		}
+		else if (current_level == 3 && e1.poss_x == -100 && e2.poss_x == -100 && e3.poss_x == -100 && e4.poss_x == -100 && e5.poss_x == -100)
+		{
+    		cambiar_nivel(4, &e1, &e2, &e3, &e4, &e5);
+    		current_level = 4;
+		}
+		else if (current_level == 4 && e1.poss_x == -100 && e2.poss_x == -100 && e3.poss_x == -100 && e4.poss_x == -100 && e5.poss_x == -100)
+		{
+    		cambiar_nivel(5, &e1, &e2, &e3, &e4, &e5);
+    		current_level = 5;
+		}
+        // Salir del juego cuando el jugador haya perdido todas sus vidas
+        if (p.num_vidas <= 0)
+            exit_game = 1;
+    }
+
+    limpiar();
+    return 0;
+}
+
+
+END_OF_MAIN()
+
+void dibujo(personaje &p, Enemigo *e1, Enemigo *e2, Enemigo *e3,Enemigo *e4,Enemigo *e5, int bala_x, int bala_y)
+{
+    release_screen();
+    acquire_screen();
+    draw_sprite(screen, fondo, 0, 0);
+    if (p.direccion == 1)
+    {
+        masked_blit(megacorriendo, screen, 0, 0, p.pos_x, p.pos_y, MAXANCHO, MAXLARGO);
+    }
+    if (p.direccion == 2)
+    {
+        masked_blit(megacorriendo2, screen, 0, 0, p.pos_x, p.pos_y, MAXANCHO, MAXLARGO);
+    }
+    masked_blit(enemigo_bitmap, screen, 0, 0, e1->poss_y, e1->poss_x, MAXANCHO, MAXLARGO);
+    masked_blit(enemigo_bitmap, screen, 0, 0, e2->poss_y, e2->poss_x, MAXANCHO, MAXLARGO);
+    masked_blit(enemigo_bitmap, screen, 0, 0, e3->poss_y, e3->poss_x, MAXANCHO, MAXLARGO);
+    masked_blit(enemigo_bitmap, screen, 0, 0, e4->poss_y, e4->poss_x, MAXANCHO, MAXLARGO);
+    masked_blit(enemigo_bitmap, screen, 0, 0, e5->poss_y, e5->poss_x, MAXANCHO, MAXLARGO);
+    
+    if (b.bala_x != -1 && b.bala_y != -1)
+    {
+        masked_blit(bala, screen, 0, 0, b.bala_x, b.bala_y, 20, 10);
+    }
+    
+    dibujar_vidas();
+    rest(10);
+}
+
+void dibujar_vidas()
+{
+    int x = 40; 
+
+    for (int i = 0; i < p.num_vidas; i++)
+    {
+        draw_sprite(screen, vida, x, 40); 
+        x += 10; 
+    }
+}
+
+void mover_enemigo(Enemigo *e)
+{
+    int velocidad_enemigo_y = 1; // Ajusta la velocidad del enemigo
+    int next_pos_y;
+
+    if (e->direccion == 0)
+    {
+        next_pos_y = e->poss_y - velocidad_enemigo_y;
+
+        if (next_pos_y >= 0 && mapita[e->poss_x / ANCHOB][(e->poss_y / ANCHOB)] != 'x' && mapita[(e->poss_x / ANCHOB) + 1][(e->poss_y / ANCHOB)] != ' ')
+        {
+            e->poss_y = next_pos_y;
+        }
+        else
+        {
+            e->direccion = 1;
+        }
+    }
+    else if (e->direccion == 1)
+    {
+        next_pos_y = e->poss_y + velocidad_enemigo_y;
+
+        if (next_pos_y < MAXANCHO && mapita[e->poss_x / ANCHOB][(e->poss_y / ANCHOB) + 1] != 'x' && mapita[(e->poss_x + ANCHOB) / ANCHOB][(e->poss_y + ANCHOB) / ANCHOB] != ' ')
+        {
+            e->poss_y = next_pos_y;
+        }
+        else
+        {
+            e->direccion = 0;
+        }
+    }
+}
+
+void mover_personaje(personaje &p, Enemigo *e1, Enemigo *e2, Enemigo *e3,Enemigo *e4,Enemigo *e5, int &bala_x, int &bala_y)
+{
+    static bool disparo_realizado = false;
+    int velocidad = 5;
+    const int gravedad = 1;
+
+    // Actualizar posición vertical
+    int next_y = p.pos_y + p.y_velocity;
+    int next_bottom_y = next_y + PLARGO;
+    int row_bottom_y = next_bottom_y / ANCHOB;
+    int row_top_y = next_y / ANCHOB;
+
+    // Movimiento eje x
+    if (key[KEY_D] && p.pos_x + PANCHO < MAXANCHO)
+    {
+        if (mapita[p.pos_y / ANCHOB][(p.pos_x + PANCHO + velocidad) / ANCHOB] != 'x' && mapita[(p.pos_y + PLARGO - 1) / ANCHOB][(p.pos_x + PANCHO + velocidad) / ANCHOB] != 'x')
+        {
+            p.pos_x += velocidad;
+            p.direccion = 1;
+        }
+    }
+
+    if (key[KEY_A] && p.pos_x >= velocidad)
+    {
+        if (mapita[p.pos_y / PLARGO][(p.pos_x - velocidad) / PANCHO] != 'x' && mapita[(p.pos_y + PLARGO - 1) / PLARGO][(p.pos_x - velocidad) / PANCHO] != 'x')
+        {
+            p.pos_x -= velocidad;
+            p.direccion = 2;
+        }
+    }
+
+    // Salto
+    if (key[KEY_SPACE] && !p.is_jumping && mapita[(p.pos_y + PLARGO) / ANCHOB][(p.pos_x + PANCHO / 2) / ANCHOB] == 'x')
+    {
+        p.is_jumping = true;
+        p.y_velocity = -JUMP_FORCE;
+    }
+
+    // Aplicar gravedad
+    p.y_velocity += GRAVITY;
+
+    if (p.y_velocity > 0) // Si está cayendo
+    {
+        // Verificar colisión con el suelo
+        if (mapita[row_bottom_y][(p.pos_x + PANCHO / 2) / ANCHOB] == 'x')
+        {
+            p.is_jumping = false;
+            p.y_velocity = 0;
+            p.pos_y = (row_bottom_y * ANCHOB) - PLARGO;
+        }
+        else
+        {
+            p.pos_y = next_y;
+        }
+    }
+    else if (p.y_velocity < 0) // Si está saltando
+    {
+        // Verificar colisión con el techo
+        if (mapita[row_top_y][(p.pos_x + PANCHO / 2) / ANCHOB] == 'x')
+        {
+            p.y_velocity = 0;
+            p.pos_y = (row_top_y + 1) * ANCHOB;
+        }
+        else
+        {
+            p.pos_y = next_y;
+        }
+    }
+    else // Si está en el suelo
+    {
+        if (mapita[row_bottom_y][(p.pos_x + PANCHO / 2) / ANCHOB] == 'x')
+        {
+            p.pos_y = (row_bottom_y * ANCHOB) - PLARGO;
+        }
+    }
+
+    // Disparar
+    if (key[KEY_X] && !b.disparada && !disparo_realizado)
+    {
+        disparar_bala(p);
+        disparo_realizado = true;
+    }
+
+    // Mover la bala si está en vuelo
+    if (b.disparada)
+    {
+    	b.bala_x += b.x_velocity;
+
+        // Verificar colisión de la bala con los bloques
+        if (b.bala_x / ANCHOB >= 0 && b.bala_x / ANCHOB < MAXMANCHO && b.bala_y / ANCHOB >= 0 && b.bala_y / ANCHOB < MAXALTO)
+        {
+            if (mapita[b.bala_y / ANCHOB][b.bala_x / ANCHOB] == 'x')
+            {
+                b.disparada = false;
+                disparo_realizado = false;
+                b.bala_x = -1;
+                b.bala_y = -1;
+            }
+        }
+
+        // Verificar colisiones de la bala con los enemigos
+        if (b.bala_x != -1)
+        {
+            if (b.bala_x >= e1->poss_y && b.bala_x <= e1->poss_y + EANCHO && b.bala_y >= e1->poss_x && b.bala_y <= e1->poss_x + ELARGO)
+            {
+                e1->poss_x = -100;
+                e1->poss_y = -100;
+                b.disparada = false;
+                disparo_realizado = false;
+                b.bala_x = -1;
+                b.bala_y = -1;
+            }
+
+            if (b.bala_x >= e2->poss_y && b.bala_x <= e2->poss_y + EANCHO && b.bala_y >= e2->poss_x && b.bala_y <= e2->poss_x + ELARGO)
+            {
+                e2->poss_x = -100;
+                e2->poss_y = -100;
+                b.disparada = false;
+                disparo_realizado = false;
+                b.bala_x = -1;
+                b.bala_y = -1;
+            }
+
+            if (b.bala_x >= e3->poss_y && b.bala_x <= e3->poss_y + EANCHO && b.bala_y >= e3->poss_x && b.bala_y <= e3->poss_x + ELARGO)
+            {
+                e3->poss_x = -100;
+                e3->poss_y = -100;
+                b.disparada = false;
+                disparo_realizado = false;
+                b.bala_x = -1;
+                b.bala_y = -1;
+            }
+            if (b.bala_x >= e4->poss_y && b.bala_x <= e4->poss_y + EANCHO && b.bala_y >= e4->poss_x && b.bala_y <= e4->poss_x + ELARGO)
+            {
+                e4->poss_x = -100;
+                e4->poss_y = -100;
+                b.disparada = false;
+                disparo_realizado = false;
+                b.bala_x = -1;
+                b.bala_y = -1;
+            }
+            if (b.bala_x >= e5->poss_y && b.bala_x <= e5->poss_y + EANCHO && b.bala_y >= e5->poss_x && b.bala_y <= e5->poss_x + ELARGO)
+            {
+                e5->poss_x = -100;
+                e5->poss_y = -100;
+                b.disparada = false;
+                disparo_realizado = false;
+                b.bala_x = -1;
+                b.bala_y = -1;
+            }
+        }
+
+        // Verificar si la bala salió de la pantalla
+        if (b.bala_x < 0 || b.bala_x > 1250)
+        {
+            b.disparada = false;
+            disparo_realizado = false;
+        	b.bala_x = -1;
+            b.bala_y = -1;
+        }
+    }
+    
+    // Verificar colisión con los enemigos
+    if (!p.invulnerable)
+    {
+        if ((p.pos_x + PANCHO) >= e1->poss_y && p.pos_x <= (e1->poss_y + EANCHO) && (p.pos_y + PLARGO) >= e1->poss_x && p.pos_y <= (e1->poss_x + ELARGO))
+        {
+            p.jugador_herido = 1;
+            p.invulnerable = true;
+            p.invulnerable_timer = 0;
+        }
+
+        if ((p.pos_x + PANCHO) >= e2->poss_y && p.pos_x <= (e2->poss_y + EANCHO) && (p.pos_y + PLARGO) >= e2->poss_x && p.pos_y <= (e2->poss_x + ELARGO))
+        {
+            p.jugador_herido = 1;
+            p.invulnerable = true;
+            p.invulnerable_timer = 0;
+        }
+
+        if ((p.pos_x + PANCHO) >= e3->poss_y && p.pos_x <= (e3->poss_y + EANCHO) && (p.pos_y + PLARGO) >= e3->poss_x && p.pos_y <= (e3->poss_x + ELARGO))
+        {
+            p.jugador_herido = 1;
+            p.invulnerable = true;
+            p.invulnerable_timer = 0;
+        }
+        if ((p.pos_x + PANCHO) >= e4->poss_y && p.pos_x <= (e4->poss_y + EANCHO) && (p.pos_y + PLARGO) >= e4->poss_x && p.pos_y <= (e4->poss_x + ELARGO))
+        {
+            p.jugador_herido = 1;
+            p.invulnerable = true;
+            p.invulnerable_timer = 0;
+        }
+        if ((p.pos_x + PANCHO) >= e5->poss_y && p.pos_x <= (e5->poss_y + EANCHO) && (p.pos_y + PLARGO) >= e5->poss_x && p.pos_y <= (e5->poss_x + ELARGO))
+        {
+            p.jugador_herido = 1;
+            p.invulnerable = true;
+            p.invulnerable_timer = 0;
+        }
+    }
+
+    // Actualizar el temporizador de invulnerabilidad
+    if (p.invulnerable)
+    {
+        p.invulnerable_timer++;
+        if (p.invulnerable_timer >= 180)
+        {
+            p.invulnerable = false;
+            p.invulnerable_timer = 0;
+        }
+    }
+
+    // Actualizar el estado de jugador_herido
+    if (p.jugador_herido)
+    {
+        p.num_vidas--;
+        p.jugador_herido = 0; // Reiniciar la variable jugador_herido después de perder una vida
+    }
+
+    // Actualizar la invulnerabilidad del jugador
+    if (p.invulnerable)
+    {
+        if (p.invulnerable_timer % 10 >= 5)
+        {
+            draw_sprite(screen, p.direccion == 1 ? megacorriendo : megacorriendo2, p.pos_x, p.pos_y);
+        }
+    }
+    else
+    {
+        if (p.direccion == 1)
+        {
+            masked_blit(megacorriendo, screen, 0, 0, p.pos_x, p.pos_y, MAXANCHO, MAXLARGO);
+        }
+        if (p.direccion == 2)
+        {
+            masked_blit(megacorriendo2, screen, 0, 0, p.pos_x, p.pos_y, MAXANCHO, MAXLARGO);
+        }
+    }
+
+    dibujar_vidas();
+}
+
+void disparar_bala(personaje &p)
+{
+    if (p.direccion == 1) // Disparar hacia la derecha
+    {
+        b.bala_x = p.pos_x + PANCHO;
+        b.bala_y = p.pos_y + PLARGO / 2;
+        b.x_velocity = 5;
+    }
+    else if (p.direccion == 2) // Disparar hacia la izquierda
+    {
+        b.bala_x = p.pos_x;
+        b.bala_y = p.pos_y + PLARGO / 2;
+        b.x_velocity = -5;
+    }
+    b.disparada = true;
+}
+
+void dibujamapa()
+{
+    int i, j;
+    clear_to_color(fondo, 0xFFFFFF); // Limpiar el fondo antes de dibujar el mapa
+    for (i = 0; i < MAXALTO; i++)
+    {
+        for (j = 0; j < MAXMANCHO; j++)
+        {
+            if (mapita[i][j] == 'x')
+            {
+                draw_sprite(fondo, bloque, ANCHOB * j, ANCHOB * i);
+            }
+            else if (mapita[i][j] == 'c')
+            {
+                draw_sprite(fondo, vacio, ANCHOB * j, ANCHOB * i);
+            }
+            else if (mapita[i][j] == 'l')
+            {
+                draw_sprite(fondo, llave, ANCHOB * j, ANCHOB * i);
+            }
+            else if (mapita[i][j] == 'p')
+            {
+                draw_sprite(fondo, puerta, ANCHOB * j, ANCHOB * i);
+            }    
+        }
+    }
+}
+
+
+void mapa(int level, Enemigo *e1, Enemigo *e2, Enemigo *e3, Enemigo *e4, Enemigo *e5) 
+{
+    FILE *mapFile;
+    int i, j, cont = 1;
+    char aux;
+    char filename[20];
+    switch (level) {
+        case 1:
+            strcpy(filename, "mapa.txt");
+            break;
+        case 2:
+            strcpy(filename, "mapa2.txt");
+            break;
+        case 3:
+            strcpy(filename, "mapa3.txt");
+            break;
+        case 4:
+            strcpy(filename, "mapa4.txt");
+            break;
+        case 5:
+            strcpy(filename, "mapa5.txt");
+            break;
+        // Agregar más casos para cada nivel adicional si es necesario
+        default:
+            printf("Nivel no encontrado");
+            return;
+    }
+
+    if ((mapFile = fopen(filename, "r")) == NULL) {
+        printf("Error al abrir archivo");
+        return;
+    }
+
+    for (i = 0; i < MAXALTO; i++) {
+        for (j = 0; j < MAXMANCHO; j++) {
+            fscanf(mapFile, "%c", &mapita[i][j]);
+            if (mapita[i][j] == 'e') {
+                if (cont == 1) {
+                    e1->direccion = 1;
+                    e1->poss_x = i * EANCHO;
+                    e1->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                } else if (cont == 2) {
+                    e2->direccion = 1;
+                    e2->poss_x = i * EANCHO;
+                    e2->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                } else if (cont == 3) {
+                    e3->direccion = 1;
+                    e3->poss_x = i * EANCHO;
+                    e3->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                } else if (cont == 4) {
+                    e4->direccion = 1;
+                    e4->poss_x = i * EANCHO;
+                    e4->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                } else if (cont == 5) {
+                    e5->direccion = 1;
+                    e5->poss_x = i * EANCHO;
+                    e5->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                }
+            }
+        }
+        fscanf(mapFile, "%c", &aux);
+    }
+    fclose(mapFile);
+}
+
+void cambiar_nivel(int nuevo_nivel, Enemigo *e1, Enemigo *e2, Enemigo *e3, Enemigo *e4, Enemigo *e5) 
+{
+    // Cargar el mapa correspondiente al nuevo nivel
+    char filename[20];
+    sprintf(filename, "mapa%d.txt", nuevo_nivel);
+    mapa(nuevo_nivel, e1, e2, e3, e4, e5);
+    dibujamapa();
+
+    // Restablecer posición del personaje
+    p.pos_x = 40;
+    p.pos_y = 620;
+    p.num_vidas = 3;
+    p.jugador_herido = 0;
+    p.invulnerable = false;
+    p.invulnerable_timer = 0;
+
+    // Restablecer posición de los enemigos
+    FILE *mapFile;
+    if ((mapFile = fopen(filename, "r")) == NULL) {
+        printf("Error al abrir archivo");
+        return;
+    }
+
+    int i, j, cont = 1; // Ajustar cont según el número de enemigos en el nivel
+    char aux;
+    for (i = 0; i < MAXALTO; i++) {
+        for (j = 0; j < MAXMANCHO; j++) {
+            fscanf(mapFile, "%c", &mapita[i][j]);
+            if (mapita[i][j] == 'e') {
+                if (cont == 1) {
+                    e1->direccion = 1;
+                    e1->poss_x = i * EANCHO;
+                    e1->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                } else if (cont == 2) {
+                    e2->direccion = 1;
+                    e2->poss_x = i * EANCHO;
+                    e2->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                } else if (cont == 3) {
+                    e3->direccion = 1;
+                    e3->poss_x = i * EANCHO;
+                    e3->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                } else if (cont == 4) { // Ajustar este caso según el número de enemigos en el nivel
+                    e4->direccion = 1;
+                    e4->poss_x = i * EANCHO;
+                    e4->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                } else if (cont == 5) { // Ajustar este caso según el número de enemigos en el nivel
+                    e5->direccion = 1;
+                    e5->poss_x = i * EANCHO;
+                    e5->poss_y = j * ELARGO;
+                    mapita[i][j] = ' ';
+                    cont++;
+                }
+            }
+        }
+        fscanf(mapFile, "%c", &aux);
+    }
+    fclose(mapFile);
+}
+
+
+
+void limpiar()
+{
+    destroy_bitmap(bala);
+    destroy_bitmap(megacorriendo);
+    destroy_bitmap(megacorriendo2);
+    destroy_bitmap(bloque);
+    destroy_bitmap(vacio);
+    destroy_bitmap(enemigo_bitmap);
+    destroy_bitmap(vida);
+}
